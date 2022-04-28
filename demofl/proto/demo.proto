@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service DemoFL {
+  rpc broadcast(Msg) returns (Res) {}
+}
+
+message void {}
+
+message Msg{
+  string msg = 2;
+}
+
+message Res {
+  string res = 2;
+}
