@@ -48,8 +48,24 @@ class Simulator:
             self.root.learn_epoch(e)
             for v in self.root.params.values():
                 v /= self.root.model.n_sample
+            if (e + 1) % 2 == 0:
+                self.test()
+
+    def test(self):
+        self.root.model.set_parameters(self.root.params)
+        model = self.root.model.model
+        model.eval()
+        correct = 0
+        all = 0
+        for (x_test, y_test) in self.data_spliter.test_dataset:
+            outputs = model(x_test)
+            _, pred = torch.max(outputs, 1)
+            correct += torch.sum(pred == y_test.data)
+            all += len(y_test)
+        log(f'Acc: {correct * 100. / all:.3f}')
 
 
 if __name__ == '__main__':
-    sim = Simulator(n_client=9, epoch=2, model_class=CNNWrapper)
+    sim = Simulator(n_client=6, epoch=20, model_class=CNNWrapper)
     sim.train()
+    sim.test()

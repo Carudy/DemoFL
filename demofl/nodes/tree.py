@@ -18,12 +18,18 @@ class TreeNode:
         self.params = self.model.get_parameters().copy()
         self.online = True
 
+    @property
+    def id(self):
+        return int(self.name)
+
     def link(self, node):
         self.children.append(node)
         node.parent = self
 
     def learn_epoch(self, epoch):
         for c in self.children:
+            c.params = self.params
+            c.model.set_parameters(self.params)
             c.learn_epoch(epoch)
         if self.children:
             group = [self] + self.children
@@ -31,14 +37,16 @@ class TreeNode:
 
 
 def group_learn(group, epoch):
-    log(f'Group leader: {group[0].name} Learning epoch {group[0].model.epoch}')
     tds = []
+    workers = []
+    group[0].recv = {}
+    group[1].recv = {}
     for c in group:
         if c.model.epoch <= epoch:
-            c.model.set_parameters(group[0].params)
+            workers.append(c)
             td = threading.Thread(target=c.model.train_epoch)
             tds.append(td)
-    log(f'{len(tds)} nodes need to learn.')
+    log(f'Group leader: {group[0].name} Learning epoch {group[0].model.epoch}, {len(tds)} nodes need to learn.')
     for td in tds: td.start()
     for td in tds: td.join()
 
@@ -47,22 +55,19 @@ def group_learn(group, epoch):
             k: secret_share(v * c.model.n_sample, 2)
             for k, v in c.model.get_parameters().items()
         }
-        group[0].recv[int(c.name)] = {k: v[0] for k, v in params.items()}
-        group[1].recv[int(c.name)] = {k: v[1] for k, v in params.items()}
-    keys = list(group[0].recv.values())[0].keys()
+        group[0].recv[c.id] = {k: v[0] for k, v in params.items()}
+        group[1].recv[c.id] = {k: v[1] for k, v in params.items()}
 
     for i in range(2):
-        a = []
         c = group[i]
-        for v in c.recv.values():
-            a.append(v.copy())
+        a = [v.copy() for v in c.recv.values()]
         c.params = fedadd(a)
 
+    keys = list(group[0].recv.values())[0].keys()
     for k in keys:
         group[0].params[k] += group[1].params[k]
 
-    group[0].model.n_sample += sum(c.model.n_sample for c in group[1:] if c.online)
-    log(f'Done.')
+    group[0].model.tot_sample = group[0].model.n_sample + sum(c.model.n_sample for c in group[1:] if c.online)
 
 
 def find_tree_p(root):
