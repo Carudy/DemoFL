@@ -29,5 +29,7 @@ class DataSpliter:
                 test_size=self.size,
             )
             return Subset(self.train_data, test_indices)
+        elif i == 'all':
+            return self.train_data
         else:
             return Subset(self.train_data, self.pieces[i])

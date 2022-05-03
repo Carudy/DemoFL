@@ -1,3 +1,5 @@
+from tqdm.auto import tqdm
+
 from demofl import *
 from demofl.model import *
 
@@ -13,6 +15,10 @@ class Simulator:
         if dataset == 'mnist':
             self.data_spliter = DataSpliter('mnist')
         self.get_tree()
+
+        self._x = []
+        self.acc = []
+        self.acc_pure = []
 
     def check_tree(self):
         if not self.root.online:
@@ -43,6 +49,32 @@ class Simulator:
         log(f'{self.root.name} is the root.')
         make_tree(self.raft, self.root, [c for c in self.nodes if c.name != self.root.name])
 
+    def train_pure(self):
+        model = self.model_class(name='pure', dataset=self.data_spliter.get_piece('all'))
+        for e in range(self.epoch):
+            log(f'Using {self.root.model.device}, start training epoch {e}')
+            model.train_epoch()
+            log('Training epoch done.')
+            if (e + 1) % 2 == 0:
+                acc = self.test_pure(model)
+                self.acc_pure.append(acc)
+
+    def test_pure(self, model):
+        _model = model.model
+        _model.eval()
+        correct = 0
+        all = 0
+        for (x_test, y_test) in self.data_spliter.test_dataset:
+            x_test = x_test.to(model.device)
+            y_test = y_test.to(model.device)
+            outputs = _model(x_test)
+            _, pred = torch.max(outputs, 1)
+            correct += torch.sum(pred == y_test.data)
+            all += len(y_test)
+        acc = correct * 100. / all
+        log(f'Acc: {acc:.3f}')
+        return acc.item()
+
     def train(self):
         for e in range(self.epoch):
             self.check_tree()
@@ -52,7 +84,9 @@ class Simulator:
             for v in self.root.params.values():
                 v /= self.root.model.tot_sample
             if (e + 1) % 2 == 0:
-                self.test()
+                self._x.append(e)
+                acc = self.test()
+                self.acc.append(acc)
 
     def test(self):
         self.root.model.set_parameters(self.root.params)
@@ -67,10 +101,17 @@ class Simulator:
             _, pred = torch.max(outputs, 1)
             correct += torch.sum(pred == y_test.data)
             all += len(y_test)
-        log(f'Acc: {correct * 100. / all:.3f}')
+        acc = correct * 100. / all
+        log(f'Acc: {acc:.3f}')
+        return acc.item()
+
+    def save(self):
+        fp = (BASE_PATH / 'output/acc.txt').open('w', encoding='utf-8')
+        fp.write(str(self._x) + '\n' + str(self.acc) + '\n' + str(self.acc_pure))
 
 
 if __name__ == '__main__':
-    sim = Simulator(n_client=6, epoch=6, model_class=CNNWrapper)
+    sim = Simulator(n_client=9, epoch=20, model_class=CNNWrapper)
+    sim.train_pure()
     sim.train()
-    sim.test()
+    sim.save()
