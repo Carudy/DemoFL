@@ -94,3 +94,4 @@ def make_tree(raft, root, others):
         log(f'{others[c].name} is selected, remain: {len(others)}')
         others = others[:c] + others[c + 1:]
         others = [d for d in others if d.online]
+    log('Tree structure constructed.')

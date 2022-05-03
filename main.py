@@ -27,8 +27,9 @@ class Simulator:
 
     def get_tree(self):
         if self.nodes is None:
+            self.data_spliter.split_even(self.n_client)
             log(f'Generating tree from {self.n_client} clients')
-            self.nodes = [TreeNode(name=i, model=self.model_class(dataset=self.data_spliter.get_piece()))
+            self.nodes = [TreeNode(name=i, model=self.model_class(name=str(i), dataset=self.data_spliter.get_piece(i)))
                           for i in range(self.n_client)]
             self.raft = RaftMaster(members=[_c.raft_node for _c in self.nodes])
             for i in range(self.n_client):
@@ -45,19 +46,23 @@ class Simulator:
     def train(self):
         for e in range(self.epoch):
             self.check_tree()
+            log(f'Using {self.root.model.device}, start training epoch {e}')
             self.root.learn_epoch(e)
+            log('Training epoch done.')
             for v in self.root.params.values():
-                v /= self.root.model.n_sample
+                v /= self.root.model.tot_sample
             if (e + 1) % 2 == 0:
                 self.test()
 
     def test(self):
         self.root.model.set_parameters(self.root.params)
-        model = self.root.model.model
+        model = self.root.model.model.to(self.root.model.device)
         model.eval()
         correct = 0
         all = 0
         for (x_test, y_test) in self.data_spliter.test_dataset:
+            x_test = x_test.to(self.root.model.device)
+            y_test = y_test.to(self.root.model.device)
             outputs = model(x_test)
             _, pred = torch.max(outputs, 1)
             correct += torch.sum(pred == y_test.data)
@@ -66,6 +71,6 @@ class Simulator:
 
 
 if __name__ == '__main__':
-    sim = Simulator(n_client=6, epoch=20, model_class=CNNWrapper)
+    sim = Simulator(n_client=6, epoch=6, model_class=CNNWrapper)
     sim.train()
     sim.test()
