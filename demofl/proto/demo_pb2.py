@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ndemo.proto\"\x06\n\x04void\"\x12\n\x03Msg\x12\x0b\n\x03msg\x18\x02 \x01(\t\"\x12\n\x03Res\x12\x0b\n\x03res\x18\x02 \x01(\t2#\n\x06\x44\x65moFL\x12\x19\n\tbroadcast\x12\x04.Msg\x1a\x04.Res\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ndemo.proto\"\x06\n\x04void\"\"\n\x03Msg\x12\x0e\n\x06source\x18\x01 \x01(\r\x12\x0b\n\x03msg\x18\x02 \x01(\t\"\x12\n\x03Res\x12\x0b\n\x03res\x18\x02 \x01(\t2#\n\x06\x44\x65moFL\x12\x19\n\tbroadcast\x12\x04.Msg\x1a\x04.Res\"\x00\x62\x06proto3')
 
 
 
@@ -49,9 +49,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _VOID._serialized_start=14
   _VOID._serialized_end=20
   _MSG._serialized_start=22
-  _MSG._serialized_end=40
-  _RES._serialized_start=42
-  _RES._serialized_end=60
-  _DEMOFL._serialized_start=62
-  _DEMOFL._serialized_end=97
+  _MSG._serialized_end=56
+  _RES._serialized_start=58
+  _RES._serialized_end=76
+  _DEMOFL._serialized_start=78
+  _DEMOFL._serialized_end=113
 # @@protoc_insertion_point(module_scope)

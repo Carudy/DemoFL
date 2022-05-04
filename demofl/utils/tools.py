@@ -3,10 +3,26 @@ import random
 import sys
 import time
 import yaml
+import threading
 
 from .log import *
 
 BIG_PRIME = 17
+
+
+def join_threads(threads):
+    for td in threads:
+        td.start()
+    for td in threads:
+        td.join()
+
+
+def thread_method_map(items, method, args=(), kwargs={}):
+    tds = [threading.Thread(target=getattr(item, method), args=args, kwargs=kwargs) for item in items]
+    for td in tds:
+        td.start()
+    for td in tds:
+        td.join()
 
 
 def secret_share(x, n):

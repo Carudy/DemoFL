@@ -1,21 +1,28 @@
-from tqdm.auto import tqdm
-
 from demofl import *
 from demofl.model import *
 
+DATA_MODEL = {
+    'mnist': CNNWrapper,
+    'cifar': CifarCNNWrapper,
+}
+
 
 class Simulator:
-    def __init__(self, n_client, epoch, model_class, dataset='mnist'):
+    def __init__(self, n_client, max_child, epoch, dataset='mnist', test_build=False, verbose=False):
         self.n_client = n_client
+        self.max_child = max_child
         self.epoch = epoch
-        self.model_class = model_class
+        self.verbose = verbose
+        self.dataset = dataset
+        self.model_class = DATA_MODEL[self.dataset]
         self.nodes = None
         self.raft = None
         self.root = None
-        if dataset == 'mnist':
-            self.data_spliter = DataSpliter('mnist')
+        self.test_build = test_build
+        if not test_build:
+            self.data_spliter = DataSpliter(dataset)
         self.get_tree()
-
+        # plot data
         self._x = []
         self.acc = []
         self.acc_pure = []
@@ -33,21 +40,26 @@ class Simulator:
 
     def get_tree(self):
         if self.nodes is None:
-            self.data_spliter.split_even(self.n_client)
+            if not self.test_build:
+                self.data_spliter.split_even(self.n_client)
             log(f'Generating tree from {self.n_client} clients')
-            self.nodes = [TreeNode(name=i, model=self.model_class(name=str(i), dataset=self.data_spliter.get_piece(i)))
+            self.nodes = [TreeNode(name=i,
+                                   max_child=self.max_child,
+                                   model=self.model_class(name=str(i),
+                                                          dataset=
+                                                          None if self.test_build else self.data_spliter.get_piece(i)),
+                                   verbose=self.verbose)
                           for i in range(self.n_client)]
-            self.raft = RaftMaster(members=[_c.raft_node for _c in self.nodes])
+            self.raft_nodes = [c.raft_node for c in self.nodes]
             for i in range(self.n_client):
-                self.nodes[i].raft_node.connect(
-                    others=[c for c in [_c for _i, _c in enumerate(self.raft.members) if _i != i]])
+                self.nodes[i].raft_node.connect(others=self.raft_nodes)
         else:
             log('Regenerate tree.')
-        root = self.raft.elect_root()
+        root = raft_elect(self.raft_nodes, verbose=self.verbose)
         self.root = self.nodes[root]
         self.root.pos = 'root'
-        log(f'{self.root.name} is the root.')
-        make_tree(self.raft, self.root, [c for c in self.nodes if c.name != self.root.name])
+        log(f'Root selected: {self.root.name}.')
+        make_tree(root=self.root, others=self.nodes, verbose=self.verbose)
 
     def train_pure(self):
         model = self.model_class(name='pure', dataset=self.data_spliter.get_piece('all'))
@@ -106,12 +118,17 @@ class Simulator:
         return acc.item()
 
     def save(self):
-        fp = (BASE_PATH / 'output/acc.txt').open('w', encoding='utf-8')
+        fp = (BASE_PATH / f'output/acc-{self.dataset}.txt').open('w', encoding='utf-8')
         fp.write(str(self._x) + '\n' + str(self.acc) + '\n' + str(self.acc_pure))
 
 
+def test_set_up(ns, mc, verbose=False):
+    _sim = Simulator(n_client=ns, max_child=mc, epoch=1, dataset='mnist', test_build=True, verbose=verbose)
+    res = sum(i.n_comm for i in _sim.nodes) / len(_sim.nodes)
+    return res
+
+
 if __name__ == '__main__':
-    sim = Simulator(n_client=9, epoch=20, model_class=CNNWrapper)
-    sim.train_pure()
-    sim.train()
-    sim.save()
+    if ARGS.mode == 'setup':
+        res = test_set_up(ARGS.n_client, ARGS.max_child)
+        print(f'{ARGS.n_client} {ARGS.max_child} {res}')

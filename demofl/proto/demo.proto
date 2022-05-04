@@ -7,6 +7,7 @@ service DemoFL {
 message void {}
 
 message Msg{
+  uint32 source = 1;
   string msg = 2;
 }
 

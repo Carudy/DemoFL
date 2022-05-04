@@ -5,18 +5,20 @@ from ..aggregation import *
 
 
 class TreeNode:
-    def __init__(self, name, model, parent=None):
-        self.max_m = 3
-        self.name = str(name)
+    def __init__(self, name, max_child, model, parent=None, verbose=False):
+        self.max_m = max_child
+        self.name = int(name)
         self.parent = parent
         self.children = []
         self.model = model
-        self.raft_node = RaftClient(name=self.name, owner=self)
+        self.verbose = verbose
+        self.raft_node = RaftClient(name=self.name, owner=self, verbose=verbose)
         self.pos = 'leaf'
         self.comm_cnt = 0
         self.recv = {}
         self.params = self.model.get_parameters().copy()
         self.online = True
+        self.n_comm = 0
 
     @property
     def id(self):
@@ -82,16 +84,19 @@ def find_tree_p(root):
     return None
 
 
-def make_tree(raft, root, others):
-    others = [d for d in others if d.online]
+def make_tree(root, others, verbose=False):
+    others = [d for d in others if d.online and d.name != root.name]
     while others:
         p = find_tree_p(root)
-        res = raft.elect_node([c.raft_node for c in others])
+        if verbose:
+            log(f'Try to add child to {p.name}, others: {", ".join([str(e.name) for e in others])}')
+        res = raft_elect([c.raft_node for c in others], verbose=verbose)
         c = 0
         while int(others[c].name) != res:
             c += 1
         p.link(others[c])
-        log(f'{others[c].name} is selected, remain: {len(others)}')
+        if verbose:
+            log(f'{others[c].name} is selected, remain: {len(others) - 1} nodes.')
         others = others[:c] + others[c + 1:]
         others = [d for d in others if d.online]
-    log('Tree structure constructed.')
+    log('Tree structure constructed.\n')
