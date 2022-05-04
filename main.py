@@ -1,3 +1,5 @@
+import time
+
 from demofl import *
 from demofl.model import *
 
@@ -55,11 +57,13 @@ class Simulator:
                 self.nodes[i].raft_node.connect(others=self.raft_nodes)
         else:
             log('Regenerate tree.')
+        st = time.time()
         root = raft_elect(self.raft_nodes, verbose=self.verbose)
         self.root = self.nodes[root]
         self.root.pos = 'root'
         log(f'Root selected: {self.root.name}.')
         make_tree(root=self.root, others=self.nodes, verbose=self.verbose)
+        self.build_time = time.time() - st
 
     def train_pure(self):
         model = self.model_class(name='pure', dataset=self.data_spliter.get_piece('all'))
@@ -125,10 +129,16 @@ class Simulator:
 def test_set_up(ns, mc, verbose=False):
     _sim = Simulator(n_client=ns, max_child=mc, epoch=1, dataset='mnist', test_build=True, verbose=verbose)
     res = sum(i.n_comm for i in _sim.nodes) / len(_sim.nodes)
-    return res
+    return res, _sim.build_time
 
 
 if __name__ == '__main__':
     if ARGS.mode == 'setup':
         res = test_set_up(ARGS.n_client, ARGS.max_child)
         print(f'{ARGS.n_client} {ARGS.max_child} {res}')
+    elif ARGS.mode == 'train':
+        sim = Simulator(n_client=ARGS.n_client, max_child=ARGS.max_child, epoch=ARGS.epoch, dataset=ARGS.dataset,
+                        verbose=ARGS.verbose)
+        sim.train_pure()
+        sim.train()
+        sim.save()

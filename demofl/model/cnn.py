@@ -103,7 +103,7 @@ class CNNWrapper(ModelWrapper):
         return 'torch'
 
     def get_parameters(self):
-        return self.model.state_dict().copy()
+        return self.model.state_dict()
 
     def set_parameters(self, params):
         self.model.load_state_dict(params)

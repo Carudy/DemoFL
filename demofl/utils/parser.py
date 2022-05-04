@@ -7,6 +7,7 @@ class MyParser:
         self.parser.add_argument('--mode', default='setup')
         self.parser.add_argument('--dataset', default='mnist')
         self.parser.add_argument('--n_client', default=6, type=int)
+        self.parser.add_argument('--epoch', default=2, type=int)
         self.parser.add_argument('--max_child', default=4, type=int)
         self.parser.add_argument('--verbose', default=False)
         self.args = self.parser.parse_args()
